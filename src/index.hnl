@@ -712,7 +712,7 @@ do {
       }
     }
   })
-  parse_structured_cons :: cs ~> mapi((c, _i) ~> {
+  parse_structured_cons :: cs ~> mapi((c, _i) ~> ({
     name: if c.name == null { "" } else { c.name },
     args: if is_arr(c.args) {
       mapi((a, _i) ~> [
@@ -721,7 +721,7 @@ do {
       ], c.args)
     } else { [] },
     result_indices: if is_arr(c.result_indices) { c.result_indices } else { [] }
-  }, cs)
+  }), cs)
 
   parse_data_payload :: [self, n] ~> if is_obj(n.payload) && is_arr(n.payload.constructors) {
     if n.payload.name == null { null } else {
@@ -954,10 +954,10 @@ do {
   })
 
   json_quote :: s ~> "\"" + esc(s) + "\""
-  knode_err :: reason ~> {
+  knode_err :: reason ~> ({
     kind: "desugar-error",
     payload: { kind: "data-error", reason: reason }
-  }
+  })
   knode2 :: [kind, payload] ~> ({ kind: kind, payload: payload })
   fold_tpl :: c ~> "{\"tag\": " + json_quote(c.name) +
     while { xs: c.args, i: 0, acc: "" } {
