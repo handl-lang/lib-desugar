@@ -958,6 +958,10 @@ do {
     kind: "desugar-error",
     payload: { kind: "data-error", reason: reason }
   })
+  -- NOTE: record literals after `~>` MUST be parenthesized — a bare `{`
+  -- there parses as the arrow's block body, so `k ~> { a: v }` evaluates
+  -- `a: v` as a bare annotation statement and returns `v`, not `{a: v}`
+  -- (lint.record-as-block flags this statically).
   knode2 :: [kind, payload] ~> ({ kind: kind, payload: payload })
   fold_tpl :: c ~> "{\"tag\": " + json_quote(c.name) +
     while { xs: c.args, i: 0, acc: "" } {
