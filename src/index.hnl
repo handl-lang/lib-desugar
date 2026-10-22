@@ -152,6 +152,10 @@ do {
   -- ---------------------------------------------------------------
   -- Fold-machine codegen (Rust build_fold_step_fn et al, ADR-0120)
   -- mode: "pred" (predicate) | "rec" (recursor)
+  -- NOTE: "pred" is retained-but-dead — ADR-0152 replaced the
+  -- type-as-predicate arrow with the nominal former, so only the
+  -- "rec" machine is emitted (mirroring Rust's `#[allow(dead_code)]`
+  -- FoldMode::Predicate; the codegen below is shared).
   -- ---------------------------------------------------------------
 
   numstr :: v ~> if v % 1 == 0 { itoa(v) } else {
@@ -781,6 +785,123 @@ do {
     ["R", cell(res, vnode("__r"))]
   ]))
 
+  -- ---------------------------------------------------------------
+  -- ADR-0152 nominal formers/ctors: seeded-sym mints (Rust
+  -- push_sym_lit / former_seed / ctor_seed / push_family_app).
+  -- `sym("seed")` is the deterministic mint of ADR-0154 §1 — the
+  -- `{"__sym__": {handle, name, parent, type}}` encoding `lit`
+  -- payloads decode back into a `Sym` at eval (`TaggedValue::from`).
+  -- ---------------------------------------------------------------
+
+  former_seed :: tn ~> "data." + tn
+  ctor_seed :: [tn, cn] ~> "data." + tn + "." + cn
+  -- a `lit` leaf carrying the serialized seeded sym
+  sym_lit :: seed ~> litv(sym(seed))
+  -- `{"__former__": fSym, "indices": [idx..]}` family-application object
+  family_app :: [tn, idx] ~> obj([
+    ["__former__", sym_lit(former_seed(tn))],
+    ["indices", arrn(idx)]
+  ])
+
+  -- For each family param, find a runtime extractor: the first
+  -- recursive ctor field declared `T(ix…)` whose j-th index is exactly
+  -- the param's atom yields `<field>.type.indices[j]` — the family's
+  -- declared index recovered from the recursive field's own `type`
+  -- link (Rust param_extractors; ADR-0154 §2). Params with no
+  -- extractor (implicit indices like `Dbl`'s `n` in `MkDbl(x): Dbl(2*n)`)
+  -- stay `null` — the index is type-level only.
+  param_extractors :: [tn, params, c] ~> while {
+    xs: c.args, vals: fill_none(len(params))
+  } {
+    [xs, vals] ~> match xs {
+      []: { out: vals },
+      [a, ...t]: do {
+        pr :: p_top(a[1])
+        vals2 :: if pr.e == null || pr.e.t != "app" || pr.e.name != tn {
+          vals
+        } else {
+          while { ps: params, j: 0, vs: vals } {
+            [ps, j, vs] ~> match ps {
+              []: { out: vs },
+              [p, ...pt]: do {
+                ij :: if j < len(pr.e.args) { pr.e.args[j] } else { null }
+                hit :: vs[j] == null && ij != null &&
+                       ij.t == "atom" && ij.name == p.name
+                vs2 :: if hit {
+                  set_at(vs, j, fai(fa(fa(vnode(a[0]), "type"), "indices"), j))
+                } else { vs }
+                { state: { ps: pt, j: j + 1, vs: vs2 } }
+              }
+            }
+          }
+        }
+        { state: { xs: t, vals: vals2 } }
+      }
+    }
+  }
+
+  -- whether an atom names a family param with no runtime extractor
+  unres_atom :: [params, vals, s] ~> while {
+    ps: params, j: 0, hit: false
+  } {
+    [ps, j, hit] ~> match ps {
+      []: { out: hit },
+      [p, ...t]: if hit || (p.name == s && vals[j] == null) {
+        { out: true }
+      } else { { state: { ps: t, j: j + 1, hit: hit } } }
+    }
+  }
+
+  -- whether `e` mentions a param with no runtime extractor (Rust
+  -- mentions_unresolved): such an index cannot be computed in the
+  -- value world and must lower to `lit null`.
+  mentions_unres :: [self, e, params, vals] ~> match e.t {
+    "atom": unres_atom(params, vals, e.name),
+    "app": while { xs: e.args, hit: false } {
+      [xs, hit] ~> match xs {
+        []: { out: hit },
+        [h, ...t]: if hit || self(self, h, params, vals) {
+          { out: true }
+        } else { { state: { xs: t, hit: hit } } }
+      }
+    },
+    "func": self(self, e.d, params, vals) || self(self, e.c, params, vals),
+    "oper": self(self, e.l, params, vals) || self(self, e.r, params, vals),
+    _: false
+  }
+
+  -- index_expr_to_ast: compile a result-index TypeExpr to a node
+  -- producing its runtime value — literals, param extractors (`vals`),
+  -- arithmetic. Unresolved-param expressions lower to `lit null`.
+  ie2ast :: [self, e, params, vals] ~>
+    if mentions_unres(mentions_unres, e, params, vals) {
+      nullv
+    } else {
+      match e.t {
+        "atom": do {
+          s :: e.name
+          if is_int_str(s) {
+            valv(parse_int(s))
+          } else {
+            if is_f64_str(s) { valv(s) } else {
+              j :: param_pos(params, s)
+              if j >= 0 {
+                v :: vals[j]
+                if v == null { nullv } else { v }
+              } else { vnode(s) }
+            }
+          }
+        },
+        "app": calln(vnode(e.name), mapi((a, _i) ~> self(self, a, params, vals), e.args)),
+        "func": node("call", [vnode("->"), self(self, e.d, params, vals), self(self, e.c, params, vals)]),
+        "oper": node(match e.oper {
+          "+": "binary.add", "-": "binary.sub", "*": "binary.mul",
+          "/": "binary.div", "%": "binary.mod", _: "binary.add"
+        }, [self(self, e.l, params, vals), self(self, e.r, params, vals)]),
+        _: vnode("")
+      }
+    }
+
   fold_task0 :: [mode, params, cons] ~> if mode == "pred" {
     p_arr :: arrn(mapi((_p, j) ~> fai(vnode("__in"), j), params))
     v0 :: if len(params) == 0 { vnode("__in") } else { fai(vnode("__in"), len(params)) }
@@ -879,7 +1000,17 @@ do {
         { out: els }
       } else {
         j :: i - 1
-        cond :: eqn(fa(fa(vnode("__wh"), "v"), "tag"), litv(cons[j].name))
+        -- ADR-0152 §2: dispatch is constructor *identity* — the seeded
+        -- `__ctor__` sym — never a `{"tag"}` string. The trailing
+        -- `v.tag` disjunct is the legacy-string bridge for values
+        -- minted by the pre-0152 encoding (it leaves once the
+        -- `__tag__`/`{tag}` bridge is deleted; mirrors the Rust
+        -- `build_fold_chain` bridge arm).
+        cond :: node("binary.or", [
+          eqn(fa(fa(vnode("__wh"), "v"), "__ctor__"),
+              sym_lit(ctor_seed(tn, cons[j].name))),
+          eqn(fa(fa(vnode("__wh"), "v"), "tag"), litv(cons[j].name))
+        ])
         th :: fold_ctor_branch(self, mode, tn, params, cons, j)
         { state: { i: j, els: ifn(cond, th, els) } }
       }
@@ -941,36 +1072,21 @@ do {
   }
 
   -- ---------------------------------------------------------------
-  -- `data` -> block of predicate + constructors + recursor
+  -- `data` -> block of former + constructors + recursor (ADR-0152):
+  --   `F` binds a seeded-sym nominal former — `F(i⃗)` produces the
+  --   canonical `{"__former__": fSym, "indices": i⃗}` object (no
+  --   predicate arrow; Rust desugar_data §1).
+  --   `Cⱼ` is a nominal arrow producing `{"__ctor__": cSym, x⃗…,
+  --   "type": F(j⃗)}` — identity is the sym (dispatch, never a
+  --   `{"tag"}` string); the `type` link is the declared membership
+  --   (ADR-0154 §2). `F.rec` is the dependent eliminator's fold
+  --   machine (unchanged: `__in` = [motive, c0..c_{N-1}, params.., v]).
   -- ---------------------------------------------------------------
 
-  esc :: s ~> char.from_chars(while { xs: char.chars(s), acc: [] } {
-    [xs, acc] ~> match xs {
-      []: { out: rev(acc) },
-      [h, ...t]: if h == "\"" || h == "\\" {
-        { state: { xs: t, acc: [h, "\\", ...acc] } }
-      } else { { state: { xs: t, acc: [h, ...acc] } } }
-    }
-  })
-
-  json_quote :: s ~> "\"" + esc(s) + "\""
   knode_err :: reason ~> ({
     kind: "desugar-error",
     payload: { kind: "data-error", reason: reason }
   })
-  -- NOTE: record literals after `~>` MUST be parenthesized — a bare `{`
-  -- there parses as the arrow's block body, so `k ~> { a: v }` evaluates
-  -- `a: v` as a bare annotation statement and returns `v`, not `{a: v}`
-  -- (lint.record-as-block flags this statically).
-  knode2 :: [kind, payload] ~> ({ kind: kind, payload: payload })
-  fold_tpl :: c ~> "{\"tag\": " + json_quote(c.name) +
-    while { xs: c.args, i: 0, acc: "" } {
-      [xs, i, acc] ~> match xs {
-        []: { out: acc + "}" },
-        [a, ...t]: { state: { xs: t, i: i + 1,
-          acc: acc + ", " + json_quote(a[0]) + ": $" + itoa(i) } }
-      }
-    }
 
   data_rewrite :: n ~> do {
     parsed :: parse_data_payload(parse_data_payload, n)
@@ -983,24 +1099,47 @@ do {
         knode_err(pos_err)
       } else {
         pnames :: mapi((p, _i) ~> p.name, params)
-        pred_step :: fold_step_fn(fold_step_fn, "pred", tn, params, cons)
-        pred_params :: ap1(pnames, "__v")
-        loop_in :: if len(params) == 0 {
-          vnode("__v")
+        -- 1. The former: `F(i⃗)` produces the canonical family-app
+        --    object (parameter-free `F` is the object itself).
+        index_vars :: mapi((p, _i) ~> vnode(p.name), params)
+        former_obj :: family_app(tn, index_vars)
+        f_value :: if len(params) == 0 {
+          former_obj
         } else {
-          arrn(mapi((pn, _i) ~> vnode(pn), pred_params))
+          fn_node(pnames, former_obj)
         }
-        pred_fn :: fn_node(pred_params, node("loop", [loop_in, pred_step]))
+        -- 2. Ctors — nominal arrows into the family. `Cⱼ(x⃗)` produces
+        --    `{"__ctor__": cSym, x⃗…, "type": F(j⃗)}`; result-index
+        --    params are recovered from recursive fields' own `type`
+        --    links (`param_extractors`), implicit indices lower to
+        --    `lit null` (type-level only).
         cons_assigns :: mapi((c, _i) ~> do {
+          pvals :: param_extractors(tn, params, c)
+          idx_nodes :: mapi((p, j) ~> do {
+            ri :: if j < len(c.result_indices) { c.result_indices[j] } else { null }
+            if ri == null {
+              pv :: pvals[j]
+              if pv == null { nullv } else { pv }
+            } else {
+              pr :: p_top(ri)
+              if pr.e == null {
+                nullv
+              } else {
+                ie2ast(ie2ast, pr.e, params, pvals)
+              }
+            }
+          }, params)
+          fields :: append(append(
+            [["__ctor__", sym_lit(ctor_seed(tn, c.name))]],
+            mapi((a, _j) ~> [a[0], vnode(a[0])], c.args)),
+            [["type", family_app(tn, idx_nodes)]])
+          o :: obj(fields)
           anames :: mapi((a, _j) ~> a[0], c.args)
-          v :: if len(c.args) == 0 {
-            knode2("lit", { tag: c.name })
-          } else {
-            tpl :: fold_tpl(c)
-            fn_node(anames, node("json", [{ kind: "json", payload: tpl }, ...mapi((a, _j) ~> vnode(a), anames)]))
-          }
+          v :: if len(c.args) == 0 { o } else { fn_node(anames, o) }
           assign(c.name, v)
         }, cons)
+        -- 3. `F.rec` — the bound-arrow record wrapping the recursor
+        --    fold machine (`{__term__, __bound__}`; ADR-0120 Phase 1).
         rec_step :: fold_step_fn(fold_step_fn, "rec", tn, params, cons)
         darg :: 1 + len(cons) + len(params)
         dfield :: find_first_recursive_field(cons, tn)
@@ -1015,7 +1154,7 @@ do {
         inner_name :: "__rec_inner_" + tn
         rec_region :: node("rec", [assign(inner_name, rec_fn), vnode(inner_name)])
         blk([
-          assign(tn, pred_fn),
+          assign(tn, f_value),
           ...cons_assigns,
           assign(tn + ".rec", rec_region)
         ])
