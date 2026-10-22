@@ -1001,16 +1001,11 @@ do {
       } else {
         j :: i - 1
         -- ADR-0152 §2: dispatch is constructor *identity* — the seeded
-        -- `__ctor__` sym — never a `{"tag"}` string. The trailing
-        -- `v.tag` disjunct is the legacy-string bridge for values
-        -- minted by the pre-0152 encoding (it leaves once the
-        -- `__tag__`/`{tag}` bridge is deleted; mirrors the Rust
-        -- `build_fold_chain` bridge arm).
-        cond :: node("binary.or", [
-          eqn(fa(fa(vnode("__wh"), "v"), "__ctor__"),
-              sym_lit(ctor_seed(tn, cons[j].name))),
-          eqn(fa(fa(vnode("__wh"), "v"), "tag"), litv(cons[j].name))
-        ])
+        -- `__ctor__` sym — never a `{"tag"}` string. (The legacy `v.tag`
+        -- bridge disjunct was deleted with the `__tag__`/`{tag}` bridge;
+        -- mirrors the Rust `build_fold_chain`.)
+        cond :: eqn(fa(fa(vnode("__wh"), "v"), "__ctor__"),
+                    sym_lit(ctor_seed(tn, cons[j].name)))
         th :: fold_ctor_branch(self, mode, tn, params, cons, j)
         { state: { i: j, els: ifn(cond, th, els) } }
       }
