@@ -211,6 +211,11 @@ do {
   eqn :: [l, r] ~> node("binary.eq", [l, r])
   arrn :: elems ~> node("array", elems)
   blk :: stmts ~> node("block", stmts)
+  -- declaration group: the `data` rewrite's emitted block is spliced
+  -- into its enclosing statement list by `splice_decl_blocks` (its
+  -- assigns bind in the enclosing scope, not a nested block scope) —
+  -- mirrors the Rust emitter's `{ "children": stmts, "__splice__": true }`.
+  blk_splice :: stmts ~> ({ kind: "block", payload: { "__splice__": true }, children: stmts })
   calln :: [callee, args] ~> node("call", [callee, ...args])
   -- left-nested binary.and over [h,...t] starting at h
   andk :: [acc, rest] ~> while { xs: rest, a: acc } {
@@ -1148,7 +1153,7 @@ do {
         rec_fn :: fn_node(["motive", ...mapi((_c, i) ~> "c" + itoa(i), cons)], rec_obj)
         inner_name :: "__rec_inner_" + tn
         rec_region :: node("rec", [assign(inner_name, rec_fn), vnode(inner_name)])
-        blk([
+        blk_splice([
           assign(tn, f_value),
           ...cons_assigns,
           assign(tn + ".rec", rec_region)
