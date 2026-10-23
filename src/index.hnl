@@ -801,7 +801,10 @@ do {
   former_seed :: tn ~> "data." + tn
   ctor_seed :: [tn, cn] ~> "data." + tn + "." + cn
   -- a `lit` leaf carrying the serialized seeded sym
-  sym_lit :: seed ~> litv(sym(seed))
+  -- (`sym.sym` — ADR-0155: dep names are scope-bound records, so the
+  -- self-named `sym` function needs the dotted spelling under both the
+  -- record and the string-callee dispatch regimes)
+  sym_lit :: seed ~> litv(sym.sym(seed))
   -- `{"__former__": fSym, "indices": [idx..]}` family-application object
   family_app :: [tn, idx] ~> obj([
     ["__former__", sym_lit(former_seed(tn))],
