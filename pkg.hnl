@@ -1,3 +1,10 @@
 -- lib-desugar: modules this package provides (entry defaults to
 -- src/index.hnl; N modules resolve to src/<name>/index.hnl).
-{ modules: ["desugar"] }
+{
+  modules: ["desugar"],
+  name: "desugar",
+  description: "Desugar transform pass source — embedded by plugin-lib-handl.",
+  license: "MIT",
+  keywords: ["desugar", "transform", "compiler", "handl"],
+  homepage: "https://github.com/handl-lang/lib-desugar",
+}
