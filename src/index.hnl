@@ -1205,7 +1205,7 @@ do {
   -- scan env.nodes for `data` decls: cons-name -> {name,params,cons}
   -- (last declaration wins, matching the Rust HashMap insert order)
   scan_data :: env ~> while {
-    xs: env.nodes, acc: {}
+    xs: env.nodes, acc: []
   } {
     [xs, acc] ~> match xs {
       []: { out: acc },
