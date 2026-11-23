@@ -6,7 +6,7 @@
 
 [[repos]]
 name = "handl-lang/lib-desugar"
-dir = "/home/luis/GitHub/handl-lang/lib-desugar"
+dir = "~//GitHub/handl-lang/lib-desugar"
 branch = "refs/heads/main"
   [repos.runner]
   kind = "script"
