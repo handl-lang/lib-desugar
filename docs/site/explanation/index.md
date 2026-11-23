@@ -9,7 +9,7 @@ than their owner.
 
 ## Where it sits
 
-This crate belongs to the `engine-*` family. Plugins, kits and hosts reach it
+This crate belongs to the `lib-*` family. Plugins, kits and hosts reach it
 through the kit's operation slot, so the engine can be swapped without touching a
 language definition.
 
