@@ -7,7 +7,7 @@ The `desugar` transform-pass source, embedded by `plugin-lib-handl`.
 This repo carries the **desugar pass as handl data**: the `TransformDef`s the
 runtime applies to surface syntax before evaluation. It is not a library a user
 imports — `plugin-lib-handl` embeds it and hands the rules to
-`engine-transform-rewrite`, so the pass can change without a runtime rebuild.
+`tool-transform-rewrite`, so the pass can change without a runtime rebuild.
 
 ## Modules
 - `src/index.hnl` — the transform definitions (the pass source)
