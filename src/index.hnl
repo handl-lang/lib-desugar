@@ -31,14 +31,14 @@ do {
   -- List / scalar helpers
   -- ---------------------------------------------------------------
 
-  rev :: xs ~> while { xs: xs, acc: [] } {
+  rev := xs ~> while { xs: xs, acc: [] } {
     [xs, acc] ~> match xs {
       []: { out: acc },
       [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
     }
   }
 
-  len :: xs ~> while { xs: xs, n: 0 } {
+  len := xs ~> while { xs: xs, n: 0 } {
     [xs, n] ~> match xs {
       []: { out: n },
       [_h, ...t]: { state: { xs: t, n: n + 1 } }
@@ -46,39 +46,39 @@ do {
   }
 
   -- map with index
-  mapi :: [f, xs0] ~> rev(while { xs: xs0, acc: [], i: 0 } {
+  mapi := [f, xs0] ~> rev(while { xs: xs0, acc: [], i: 0 } {
     [xs, acc, i] ~> match xs {
       []: { out: acc },
       [h, ...t]: { state: { xs: t, acc: [f(h, i), ...acc], i: i + 1 } }
     }
   })
 
-  append :: [xs, ys] ~> [...xs, ...ys]
-  ap1 :: [xs, x] ~> [...xs, x]
-  ap2 :: [a, b] ~> [a, b]
-  cat :: [xs, ys] ~> [...xs, ...ys]
+  append := [xs, ys] ~> [...xs, ...ys]
+  ap1 := [xs, x] ~> [...xs, x]
+  ap2 := [a, b] ~> [a, b]
+  cat := [xs, ys] ~> [...xs, ...ys]
 
-  is_obj :: v ~> match v { {}: true, _: false }
-  is_arr :: v ~> match v { []: true, [_h, ..._t]: true, _: false }
+  is_obj := v ~> match v { {}: true, _: false }
+  is_arr := v ~> match v { []: true, [_h, ..._t]: true, _: false }
 
   -- integer formatting: 123 -> "123" (negative handled)
-  itoa0 :: n ~> if n == 0 { "0" } else {
+  itoa0 := n ~> if n == 0 { "0" } else {
     while { n: n, acc: "" } {
       [n, acc] ~> if n == 0 {
         { out: acc }
       } else {
-        d :: n % 10
+        d := n % 10
         { state: { n: (n - d) / 10, acc: char.from_code_point(48 + d) + acc } }
       }
     }
   }
-  itoa :: n ~> if n < 0 { "-" + itoa0(0 - n) } else { itoa0(n) }
+  itoa := n ~> if n < 0 { "-" + itoa0(0 - n) } else { itoa0(n) }
 
   -- string head before any delimiter (Rust derive_arg_name_from_type
   -- splits on '(' ' ' '.' '-' '+')
-  head_atom :: s ~> {
-    cs :: char.chars(s)
-    take :: while { xs: cs, acc: [] } {
+  head_atom := s ~> {
+    cs := char.chars(s)
+    take := while { xs: cs, acc: [] } {
       [xs, acc] ~> match xs {
         []: { out: rev(acc) },
         [h, ...t]: if h == "(" || h == " " || h == "." || h == "-" || h == "+" {
@@ -90,16 +90,16 @@ do {
     }
     char.from_chars(take)
   }
-  lower_str :: s ~> char.from_chars(
+  lower_str := s ~> char.from_chars(
     mapi((c, _i) ~> char.to_lower(c), char.chars(s)))
-  derive_arg_name :: typ ~> lower_str(head_atom(typ))
+  derive_arg_name := typ ~> lower_str(head_atom(typ))
 
   -- serde_json::Value::to_string for scalar payloads.
   -- NOTE (parity edge): non-empty *string* payloads of `value`/`lit`
   -- nodes would be quoted by serde ("\"x\"") — not needed by any corpus
   -- type expression (they hold numbers); quoted via "\"..\"" when hit.
-  is_digit :: c ~> char.code_point(c) >= 48 && char.code_point(c) <= 57
-  all_digits :: xs ~> while { xs: xs, ok: true } {
+  is_digit := c ~> char.code_point(c) >= 48 && char.code_point(c) <= 57
+  all_digits := xs ~> while { xs: xs, ok: true } {
     [xs, ok] ~> match xs {
       []: { out: ok },
       [h, ...t]: if is_digit(h) {
@@ -107,9 +107,9 @@ do {
       } else { { out: false } }
     }
   }
-  is_int_str :: s ~> do {
-    cs :: char.chars(s)
-    d :: match cs {
+  is_int_str := s ~> do {
+    cs := char.chars(s)
+    d := match cs {
       ["-", ...t]: t,
       _: cs
     }
@@ -118,7 +118,7 @@ do {
       [h, ...t]: is_digit(h) && all_digits(t)
     }
   }
-  is_f64_str :: s ~> if is_int_str(s) { true } else {
+  is_f64_str := s ~> if is_int_str(s) { true } else {
     while { xs: char.chars(s), saw_dot: false, saw_digit: false } {
       [xs, saw_dot, saw_digit] ~> match xs {
         []: { out: saw_digit },
@@ -136,11 +136,11 @@ do {
       }
     }
   }
-  parse_int :: s ~> do {
-    cs :: char.chars(s)
-    neg :: match cs { ["-", ..._t]: true, _: false }
-    ds :: match cs { ["-", ...t]: t, _: cs }
-    v :: while { xs: ds, acc: 0 } {
+  parse_int := s ~> do {
+    cs := char.chars(s)
+    neg := match cs { ["-", ..._t]: true, _: false }
+    ds := match cs { ["-", ...t]: t, _: cs }
+    v := while { xs: ds, acc: 0 } {
       [xs, acc] ~> match xs {
         []: { out: acc },
         [h, ...t]: { state: { xs: t, acc: acc * 10 + char.code_point(h) - 48 } }
@@ -158,18 +158,18 @@ do {
   -- FoldMode::Predicate; the codegen below is shared).
   -- ---------------------------------------------------------------
 
-  numstr :: v ~> if v % 1 == 0 { itoa(v) } else {
-    ip :: itoa(v - v % 1)
+  numstr := v ~> if v % 1 == 0 { itoa(v) } else {
+    ip := itoa(v - v % 1)
     -- crude fractional render: v - ip scaled to 4 digits
-    frac :: v - (v - v % 1)
-    ds :: itoa(frac * 10000 - frac * 10000 % 1)
+    frac := v - (v - v % 1)
+    ds := itoa(frac * 10000 - frac * 10000 % 1)
     ip + "." + ds
   }
-  scalar_str :: v ~> match v {
+  scalar_str := v ~> match v {
     "": "\"\"",
     _: numstr(v)
   }
-  json_str :: v ~> match v {
+  json_str := v ~> match v {
     null: "null",
     true: "true",
     false: "false",
@@ -185,50 +185,50 @@ do {
   --                   {t:"func",d,c} {t:"oper",oper,l,r}
   -- ---------------------------------------------------------------
 
-  vnode :: name ~> ({ kind: "var", payload: name })
-  litv :: v ~> ({ kind: "lit", payload: v })
-  valv :: v ~> ({ kind: "value", payload: v })
-  nullv :: { kind: "lit", payload: null }
-  node :: [kind, children] ~> ({ kind: kind, children: children })
+  vnode := name ~> ({ kind: "var", payload: name })
+  litv := v ~> ({ kind: "lit", payload: v })
+  valv := v ~> ({ kind: "value", payload: v })
+  nullv := { kind: "lit", payload: null }
+  node := [kind, children] ~> ({ kind: kind, children: children })
   -- function node: rich payload {params, body: idx} — body spec realized
   -- through the `__node__` payload marker.
-  fn_node :: [params, body] ~> ({
+  fn_node := [params, body] ~> ({
     kind: "function",
     payload: { params: params, body: { "__node__": body } }
   })
-  fn_term :: [params, body, darg, dfield] ~> ({ kind: "function", payload: { params: params, body: { "__node__": body }, termination: { decreasing_arg: darg, decreasing_field: dfield } } })
-  fa :: [t, field] ~> node("field-access", [t, litv(field)])
-  fai :: [t, i] ~> node("field-access", [t, valv(i)])
-  entry :: [k, v] ~> node("entry", [vnode(k), v])
-  obj :: fields ~> node("object", mapi((f, _i) ~> entry(f[0], f[1]), fields))
-  either :: [is_l, v] ~> obj([
+  fn_term := [params, body, darg, dfield] ~> ({ kind: "function", payload: { params: params, body: { "__node__": body }, termination: { decreasing_arg: darg, decreasing_field: dfield } } })
+  fa := [t, field] ~> node("field-access", [t, litv(field)])
+  fai := [t, i] ~> node("field-access", [t, valv(i)])
+  entry := [k, v] ~> node("entry", [vnode(k), v])
+  obj := fields ~> node("object", mapi((f, _i) ~> entry(f[0], f[1]), fields))
+  either := [is_l, v] ~> obj([
     ["__either__", (if is_l { litv("left") } else { litv("right") })],
     ["value", v]
   ])
-  cell :: [h, t] ~> obj([["h", h], ["t", t]])
-  assign :: [name, v] ~> node("assign", [vnode(name), v])
-  ifn :: [c, t, e] ~> node("if", [c, t, e])
-  eqn :: [l, r] ~> node("binary.eq", [l, r])
-  arrn :: elems ~> node("array", elems)
-  blk :: stmts ~> node("block", stmts)
+  cell := [h, t] ~> obj([["h", h], ["t", t]])
+  assign := [name, v] ~> node("assign", [vnode(name), v])
+  ifn := [c, t, e] ~> node("if", [c, t, e])
+  eqn := [l, r] ~> node("binary.eq", [l, r])
+  arrn := elems ~> node("array", elems)
+  blk := stmts ~> node("block", stmts)
   -- declaration group: the `data` rewrite's emitted block is spliced
   -- into its enclosing statement list by `splice_decl_blocks` (its
   -- assigns bind in the enclosing scope, not a nested block scope) —
   -- mirrors the Rust emitter's `{ "children": stmts, "__splice__": true }`.
-  blk_splice :: stmts ~> ({ kind: "block", payload: { "__splice__": true }, children: stmts })
-  calln :: [callee, args] ~> node("call", [callee, ...args])
+  blk_splice := stmts ~> ({ kind: "block", payload: { "__splice__": true }, children: stmts })
+  calln := [callee, args] ~> node("call", [callee, ...args])
   -- left-nested binary.and over [h,...t] starting at h
-  andk :: [acc, rest] ~> while { xs: rest, a: acc } {
+  andk := [acc, rest] ~> while { xs: rest, a: acc } {
     [xs, a] ~> match xs {
       []: { out: a },
       [h, ...t]: { state: { xs: t, a: node("binary.and", [a, h]) } }
     }
   }
-  andof :: parts ~> match parts {
+  andof := parts ~> match parts {
     []: litv(true),
     [h, ...t]: andk(h, t)
   }
-  tchain :: [base, n] ~> while { i: 0, x: base } {
+  tchain := [base, n] ~> while { i: 0, x: base } {
     [i, x] ~> if i == n {
       { out: x }
     } else {
@@ -242,32 +242,32 @@ do {
   -- (ADR-0081), positional fallback otherwise.
   -- ---------------------------------------------------------------
 
-  kids :: n ~> n.children
-  nat :: [n, i] ~> n.children[i]
+  kids := n ~> n.children
+  nat := [n, i] ~> n.children[i]
   -- child record at named role with positional fallback
-  crole :: [n, pos] ~> n.children[pos]
-  csubject :: n ~> if n.roles == null || n.roles.subject == null {
+  crole := [n, pos] ~> n.children[pos]
+  csubject := n ~> if n.roles == null || n.roles.subject == null {
     n.children[0]
   } else {
     n.children[n.roles.subject]
   }
-  cannot :: n ~> if n.roles == null || n.roles.annot == null {
+  cannot := n ~> if n.roles == null || n.roles.annot == null {
     n.children[1]
   } else {
     n.children[n.roles.annot]
   }
-  ctarget :: n ~> if n.roles == null || n.roles.target == null {
+  ctarget := n ~> if n.roles == null || n.roles.target == null {
     n.children[0]
   } else {
     n.children[n.roles.target]
   }
-  cfield :: n ~> if n.roles == null || n.roles.field == null {
+  cfield := n ~> if n.roles == null || n.roles.field == null {
     n.children[1]
   } else {
     n.children[n.roles.field]
   }
-  drop1 :: xs ~> match xs { []: [], [_h, ...t]: t }
-  join_str :: [xs, sep] ~> while { xs: xs, acc: "", fst: true } {
+  drop1 := xs ~> match xs { []: [], [_h, ...t]: t }
+  join_str := [xs, sep] ~> while { xs: xs, acc: "", fst: true } {
     [xs, acc, fst] ~> match xs {
       []: { out: acc },
       [h, ...t]: if fst {
@@ -277,7 +277,7 @@ do {
       }
     }
   }
-  has_prefix :: [s, p] ~> if char.length(s) < char.length(p) {
+  has_prefix := [s, p] ~> if char.length(s) < char.length(p) {
     false
   } else {
     char.slice(s, 0, char.length(p)) == p
@@ -286,13 +286,13 @@ do {
   -- scalar payload -> text (numbers/keywords; a non-empty string scalar
   -- renders raw — serde would quote it; that case cannot appear inside a
   -- parsed type expression)
-  nts :: [self, n] ~> match n.kind {
+  nts := [self, n] ~> match n.kind {
     "var": n.payload,
     "value": json_str(n.payload),
     "lit": json_str(n.payload),
     "call": do {
-      callee :: if len(kids(n)) == 0 { "" } else { self(self, kids(n)[0]) }
-      args :: mapi((a, _i) ~> self(self, a), drop1(kids(n)))
+      callee := if len(kids(n)) == 0 { "" } else { self(self, kids(n)[0]) }
+      args := mapi((a, _i) ~> self(self, a), drop1(kids(n)))
       callee + "(" + join_str(args, ", ") + ")"
     },
     "type-annot": if len(kids(n)) >= 2 {
@@ -302,8 +302,8 @@ do {
       self(self, ctarget(n)) + "." + self(self, cfield(n))
     } else { "" },
     _: if has_prefix(n.kind, "binary.") {
-      opname :: char.slice(n.kind, 7, char.length(n.kind))
-      sym :: match opname {
+      opname := char.slice(n.kind, 7, char.length(n.kind))
+      sym := match opname {
         "add": "+", "sub": "-", "mul": "*", "div": "/", "mod": "%",
         _: opname
       }
@@ -312,14 +312,14 @@ do {
       } else { "" }
     } else { "" }
   }
-  is_ident_start :: c ~> char.is_alpha(c) || c == "_"
-  is_ident :: c ~> char.is_alnum(c) || c == "_"
+  is_ident_start := c ~> char.is_alpha(c) || c == "_"
+  is_ident := c ~> char.is_alnum(c) || c == "_"
 
-  tokenize :: s ~> while {
+  tokenize := s ~> while {
     xs: char.chars(s), out: [], num: "", id: ""
   } {
     [xs, out, num, id] ~> do {
-      flush :: [o2, n2, i2] ~> if i2 != "" {
+      flush := [o2, n2, i2] ~> if i2 != "" {
         [...o2, ...(if n2 == "" { [] } else { [n2] }), i2]
       } else {
         if n2 == "" { o2 } else { [...o2, n2] }
@@ -354,12 +354,12 @@ do {
       }
     }
   }
-  tok :: [toks, pos] ~> if pos < len(toks) { toks[pos] } else { "" }
+  tok := [toks, pos] ~> if pos < len(toks) { toks[pos] } else { "" }
 
-  p_atom :: [self, toks, pos] ~> do {
-    tk :: tok(toks, pos)
+  p_atom := [self, toks, pos] ~> do {
+    tk := tok(toks, pos)
     if tk == "(" {
-      inner :: self(self, toks, pos + 1)
+      inner := self(self, toks, pos + 1)
       if inner.e == null { { e: null, pos: pos } } else {
         if tok(toks, inner.pos) == ")" { { e: inner.e, pos: inner.pos + 1 } } else { inner }
       }
@@ -372,11 +372,11 @@ do {
       }
     }
   }
-  p_app :: [self, toks, pos] ~> do {
-    a :: p_atom(self, toks, pos)
+  p_app := [self, toks, pos] ~> do {
+    a := p_atom(self, toks, pos)
     if a.e == null { { e: null, pos: pos } } else {
       if tok(toks, a.pos) == "(" {
-        inner :: while { pos: a.pos + 1, args: [], done: false, ok: true } {
+        inner := while { pos: a.pos + 1, args: [], done: false, ok: true } {
           [pos, args, done, ok] ~> if done {
             { out: { pos: pos, args: args, ok: ok } }
           } else {
@@ -386,7 +386,7 @@ do {
               if len(args) > 0 && tok(toks, pos) == "," {
                 { state: { pos: pos + 1, args: args, done: done, ok: ok } }
               } else {
-                e :: self(self, toks, pos)
+                e := self(self, toks, pos)
                 if e.e == null {
                   { out: { pos: pos, args: args, ok: false } }
                 } else {
@@ -405,14 +405,14 @@ do {
       } else { a }
     }
   }
-  p_mul :: [self, toks, pos] ~> do {
-    l0 :: p_app(self, toks, pos)
+  p_mul := [self, toks, pos] ~> do {
+    l0 := p_app(self, toks, pos)
     if l0.e == null { { e: null, pos: pos } } else {
       while { e: l0.e, pos: l0.pos } {
         [e, pos] ~> do {
-          oper :: tok(toks, pos)
+          oper := tok(toks, pos)
           if oper == "*" || oper == "/" || oper == "%" {
-            r :: p_app(self, toks, pos + 1)
+            r := p_app(self, toks, pos + 1)
             if r.e == null { { out: { e: null, pos: pos } } } else {
               { state: { e: { t: "oper", oper: oper, l: e, r: r.e }, pos: r.pos } }
             }
@@ -421,14 +421,14 @@ do {
       }
     }
   }
-  p_add :: [self, toks, pos] ~> do {
-    l0 :: p_mul(self, toks, pos)
+  p_add := [self, toks, pos] ~> do {
+    l0 := p_mul(self, toks, pos)
     if l0.e == null { { e: null, pos: pos } } else {
       while { e: l0.e, pos: l0.pos } {
         [e, pos] ~> do {
-          oper :: tok(toks, pos)
+          oper := tok(toks, pos)
           if oper == "+" || oper == "-" {
-            r :: p_mul(self, toks, pos + 1)
+            r := p_mul(self, toks, pos + 1)
             if r.e == null { { out: { e: null, pos: pos } } } else {
               { state: { e: { t: "oper", oper: oper, l: e, r: r.e }, pos: r.pos } }
             }
@@ -437,21 +437,21 @@ do {
       }
     }
   }
-  p_func :: [self, toks, pos] ~> do {
-    l :: p_add(self, toks, pos)
+  p_func := [self, toks, pos] ~> do {
+    l := p_add(self, toks, pos)
     if l.e == null { { e: null, pos: pos } } else {
       if tok(toks, l.pos) == "->" {
-        r :: self(self, toks, l.pos + 1)
+        r := self(self, toks, l.pos + 1)
         if r.e == null { { e: null, pos: pos } } else {
           { e: { t: "func", d: l.e, c: r.e }, pos: r.pos }
         }
       } else { l }
     }
   }
-  p_top :: s ~> p_func(p_func, tokenize(s), 0)
+  p_top := s ~> p_func(p_func, tokenize(s), 0)
 
   -- occurrence check (Rust occurs_in)
-  any_of :: [self, args, tn] ~> while { xs: args, hit: false } {
+  any_of := [self, args, tn] ~> while { xs: args, hit: false } {
     [xs, hit] ~> match xs {
       []: { out: hit },
       [h, ...t]: if hit || self(self, h, tn) {
@@ -463,50 +463,50 @@ do {
   }
 
   -- strict positivity (Coq-style): `tn` must not occur in a domain
-  occurs :: [self, e, tn] ~> match e.t {
+  occurs := [self, e, tn] ~> match e.t {
     "atom": e.name == tn,
     "app": e.name == tn || any_of(self, e.args, tn),
     "func": self(self, e.d, tn) || self(self, e.c, tn),
     "oper": self(self, e.l, tn) || self(self, e.r, tn),
     _: false
   }
-  pos_args :: [self, args, tn] ~> while { xs: args, err: "" } {
+  pos_args := [self, args, tn] ~> while { xs: args, err: "" } {
     [xs, err] ~> match xs {
       []: { out: err },
       [h, ...t]: if err != "" {
         { out: err }
       } else {
-        r :: self(self, h, tn)
+        r := self(self, h, tn)
         if r != "" { { out: r } } else { { state: { xs: t, err: "" } } }
       }
     }
   }
 
   -- strict positivity over all constructor args; returns "" or a reason
-  pos_rec :: [self, e, tn] ~> match e.t {
+  pos_rec := [self, e, tn] ~> match e.t {
     "atom": "",
     "app": pos_args(self, e.args, tn),
     "func": if occurs(occurs, e.d, tn) {
       "'" + tn + "' occurs in a function domain (negative position)"
     } else { self(self, e.c, tn) },
     "oper": do {
-      l :: pos_rec(self, e.l, tn)
+      l := pos_rec(self, e.l, tn)
       if l == "" { pos_rec(self, e.r, tn) } else { l }
     },
     _: ""
   }
-  check_positivity :: [tn, cons] ~> while {
+  check_positivity := [tn, cons] ~> while {
     cs: cons, err: ""
   } {
     [cs, err] ~> match cs {
       []: { out: err },
       [c, ...ct]: do {
-        aerr :: while { xs: c.args, err: "" } {
+        aerr := while { xs: c.args, err: "" } {
           [xs, err] ~> match xs {
             []: { out: err },
             [a, ...at]: do {
-              pr :: p_top(a[1])
-              r :: if pr.e == null { "" } else { pos_rec(pos_rec, pr.e, tn) }
+              pr := p_top(a[1])
+              r := if pr.e == null { "" } else { pos_rec(pos_rec, pr.e, tn) }
               if r != "" {
                 { out: "strict positivity violated: constructor '" + c.name +
                        "' arg '" + a[0] + "' has type '" + a[1] + "' — " + r }
@@ -520,21 +520,21 @@ do {
   }
 
   -- is the (parsed) type expr the type being defined? (Atom/App head)
-  is_recursive_expr :: [e, tn] ~> match e.t {
+  is_recursive_expr := [e, tn] ~> match e.t {
     "atom": e.name == tn,
     "app": e.name == tn,
     _: false
   }
 
   -- positions+exprs of a constructor's recursive args
-  rec_arg_positions :: [tn, cons] ~> while {
+  rec_arg_positions := [tn, cons] ~> while {
     xs: cons.args, i: 0, acc: []
   } {
     [xs, i, acc] ~> match xs {
       []: { out: rev(acc) },
       [a, ...t]: do {
-        pr :: p_top(a[1])
-        hit :: if pr.e == null { false } else { is_recursive_expr(pr.e, tn) }
+        pr := p_top(a[1])
+        hit := if pr.e == null { false } else { is_recursive_expr(pr.e, tn) }
         if hit {
           { state: { xs: t, i: i + 1, acc: [{ pos: i, e: pr.e }, ...acc] } }
         } else {
@@ -544,18 +544,18 @@ do {
     }
   }
 
-  find_first_recursive_field :: [cons, tn] ~> while {
+  find_first_recursive_field := [cons, tn] ~> while {
     cs: cons, found: "" } {
     [cs, found] ~> match cs {
       []: { out: found },
       [c, ...ct]: if found != "" {
         { out: found }
       } else {
-        f :: while { xs: c.args, found: "" } {
+        f := while { xs: c.args, found: "" } {
           [xs, found] ~> match xs {
             []: { out: found },
             [a, ...at]: do {
-              pr :: p_top(a[1])
+              pr := p_top(a[1])
               if found == "" && pr.e != null && is_recursive_expr(pr.e, tn) {
                 { out: a[0] }
               } else { { state: { xs: at, found: found } } }
@@ -573,12 +573,12 @@ do {
   -- ---------------------------------------------------------------
 
   -- a type-annot-like node: shape declares `subject`+`annot` roles
-  is_annot_node :: n ~> n.roles != null && n.roles.subject != null &&
+  is_annot_node := n ~> n.roles != null && n.roles.subject != null &&
                        n.roles.annot != null && len(n.children) >= 2
 
-  parse_type_param :: [self, n] ~> if is_annot_node(n) {
-    sn :: csubject(n)
-    an :: cannot(n)
+  parse_type_param := [self, n] ~> if is_annot_node(n) {
+    sn := csubject(n)
+    an := cannot(n)
     if sn.kind == "var" {
       ap2(sn.payload, nts(nts, an))
     } else { null }
@@ -590,15 +590,15 @@ do {
   -- carry children [callee, arg...]. A parameterized family head
   -- (`Vec<n : Nat, a : Type>`) parses to `dimension`; `index_app` is the
   -- `<>` application form — the Rust `parse_type_expr` accepts all three.
-  parse_type_app :: [self, n] ~> do {
-    c0 :: nat(n, 0)
-    nm :: if c0 == null || c0.kind != "var" { null } else { c0.payload }
+  parse_type_app := [self, n] ~> do {
+    c0 := nat(n, 0)
+    nm := if c0 == null || c0.kind != "var" { null } else { c0.payload }
     if nm == null { null } else {
-      ps :: while { xs: drop1(kids(n)), acc: [] } {
+      ps := while { xs: drop1(kids(n)), acc: [] } {
         [xs, acc] ~> match xs {
           []: { out: rev(acc) },
           [h, ...t]: do {
-            p :: parse_type_param(self, h)
+            p := parse_type_param(self, h)
             if p == null {
               { state: { xs: t, acc: acc } }
             } else {
@@ -611,7 +611,7 @@ do {
     }
   }
 
-  parse_type_expr :: [self, n] ~> match n.kind {
+  parse_type_expr := [self, n] ~> match n.kind {
     "var": { name: n.payload, params: [] },
     "call": parse_type_app(self, n),
     "index_app": parse_type_app(self, n),
@@ -620,10 +620,10 @@ do {
   }
 
   -- result-index strings from a type-expr node (call args)
-  extract_result_indices :: [self, n, expected] ~> do {
-    raw :: if n.kind == "call" {
+  extract_result_indices := [self, n, expected] ~> do {
+    raw := if n.kind == "call" {
       mapi((a, _i) ~> do {
-        s :: nts(nts, a)
+        s := nts(nts, a)
         if s == "" { null } else { s }
       }, drop1(kids(n)))
     } else { [] }
@@ -639,19 +639,19 @@ do {
     }
   }
 
-  parse_ctor_arg :: [self, argn, i] ~> if is_annot_node(argn) {
-    sn :: csubject(argn)
-    an :: cannot(argn)
-    nm :: if sn != null && sn.kind == "var" { sn.payload } else { "_" }
-    ty :: if an == null { "_" } else { nts(nts, an) }
+  parse_ctor_arg := [self, argn, i] ~> if is_annot_node(argn) {
+    sn := csubject(argn)
+    an := cannot(argn)
+    nm := if sn != null && sn.kind == "var" { sn.payload } else { "_" }
+    ty := if an == null { "_" } else { nts(nts, an) }
     ap2(nm, ty)
   } else {
-    ty :: nts(nts, argn)
-    nm :: if ty == "" { "_" + itoa(i - 1) } else { derive_arg_name(ty) }
+    ty := nts(nts, argn)
+    nm := if ty == "" { "_" + itoa(i - 1) } else { derive_arg_name(ty) }
     ap2(nm, ty)
   }
 
-  all_none :: ris ~> while { xs: ris, ok: true } {
+  all_none := ris ~> while { xs: ris, ok: true } {
     [xs, ok] ~> match xs {
       []: { out: ok },
       [h, ...t]: if h == null {
@@ -659,7 +659,7 @@ do {
       } else { { out: false } }
     }
   }
-  first_nat_param :: params ~> while { xs: params, i: 0 } {
+  first_nat_param := params ~> while { xs: params, i: 0 } {
     [xs, i] ~> match xs {
       []: { out: 0 - 1 },
       [h, ...t]: if h.typ == "Nat" {
@@ -667,34 +667,34 @@ do {
       } else { { state: { xs: t, i: i + 1 } } }
     }
   }
-  set_at :: [xs, i, v] ~> mapi((x, j) ~> if j == i { v } else { x }, xs)
+  set_at := [xs, i, v] ~> mapi((x, j) ~> if j == i { v } else { x }, xs)
 
   -- walk the constructor list (`alt` tree / `type-annot` / leaf) via an
   -- explicit stack; returns the constructors in order.
-  collect_leaf :: [self, n, params, ris, acc] ~> match n.kind {
+  collect_leaf := [self, n, params, ris, acc] ~> match n.kind {
     "var": do {
-      ri :: if all_none(ris) {
-        hit :: first_nat_param(params)
+      ri := if all_none(ris) {
+        hit := first_nat_param(params)
         if hit < 0 { ris } else { set_at(ris, hit, "0") }
       } else { ris }
       ap1(acc, { name: n.payload, args: [], result_indices: ri })
     },
     "call": do {
-      c0 :: nat(n, 0)
-      nm :: if c0 == null || c0.kind != "var" { "" } else { c0.payload }
-      args :: mapi((a, i) ~> parse_ctor_arg(self, a, i + 1), drop1(kids(n)))
+      c0 := nat(n, 0)
+      nm := if c0 == null || c0.kind != "var" { "" } else { c0.payload }
+      args := mapi((a, i) ~> parse_ctor_arg(self, a, i + 1), drop1(kids(n)))
       ap1(acc, { name: nm, args: args, result_indices: ris })
     },
     _: acc
   }
 
-  fold_push :: [kids, ris, rest] ~> while { xs: kids, st: rest } {
+  fold_push := [kids, ris, rest] ~> while { xs: kids, st: rest } {
     [xs, st] ~> match xs {
       []: { out: st },
       [h, ...t]: { state: { xs: t, st: [{n: h, ris: ris}, ...st] } }
     }
   }
-  fill_none :: n ~> while { i: 0, acc: [] } {
+  fill_none := n ~> while { i: 0, acc: [] } {
     [i, acc] ~> if i == n { { out: acc } } else {
       { state: { i: i + 1, acc: [...acc, null] } }
     }
@@ -702,20 +702,20 @@ do {
 
   -- structured (hand-built) payload: payload.constructors is an array of
   -- {name, args:[{name,type}], result_indices:[..]}
-  collect_constructors :: [self, n, params] ~> rev(while {
+  collect_constructors := [self, n, params] ~> rev(while {
     stack: [{n: n, ris: fill_none(len(params))}], out: []
   } {
     [stack, out] ~> match stack {
       []: { out: out },
       [{n: cur, ris: ris}, ...rest]: match cur.kind {
         "alt": do {
-          pushed :: fold_push(cur.children, ris, rest)
+          pushed := fold_push(cur.children, ris, rest)
           { state: { stack: pushed, out: out } }
         },
         _: if is_annot_node(cur) {
-          sn :: csubject(cur)
-          an :: cannot(cur)
-          ri :: if an == null { fill_none(len(params)) } else {
+          sn := csubject(cur)
+          an := cannot(cur)
+          ri := if an == null { fill_none(len(params)) } else {
             extract_result_indices(self, an, len(params))
           }
           if sn == null {
@@ -729,7 +729,7 @@ do {
       }
     }
   })
-  parse_structured_cons :: cs ~> mapi((c, _i) ~> ({
+  parse_structured_cons := cs ~> mapi((c, _i) ~> ({
     name: if c.name == null { "" } else { c.name },
     args: if is_arr(c.args) {
       mapi((a, _i) ~> [
@@ -740,13 +740,13 @@ do {
     result_indices: if is_arr(c.result_indices) { c.result_indices } else { [] }
   }), cs)
 
-  parse_data_payload :: [self, n] ~> if is_obj(n.payload) && is_arr(n.payload.constructors) {
+  parse_data_payload := [self, n] ~> if is_obj(n.payload) && is_arr(n.payload.constructors) {
     if n.payload.name == null { null } else {
       { name: n.payload.name, params: [], cons: parse_structured_cons(n.payload.constructors) }
     }
   } else {
-    cs :: kids(n)
-    np :: if len(cs) >= 2 {
+    cs := kids(n)
+    np := if len(cs) >= 2 {
       parse_type_expr(self, cs[0])
     } else {
       if is_obj(n.payload) && n.payload.name != null {
@@ -754,7 +754,7 @@ do {
       } else { null }
     }
     if np == null || len(cs) == 0 { null } else {
-      cons :: collect_constructors(self, cs[len(cs) - 1], np.params)
+      cons := collect_constructors(self, cs[len(cs) - 1], np.params)
       { name: np.name, params: np.params, cons: cons }
     }
   }
@@ -764,7 +764,7 @@ do {
   -- atoms lower to `tp[j]` lookups when `tp` (a spec or null) is given.
   -- ---------------------------------------------------------------
 
-  param_pos :: [params, s] ~> while { xs: params, i: 0 } {
+  param_pos := [params, s] ~> while { xs: params, i: 0 } {
     [xs, i] ~> match xs {
       []: { out: 0 - 1 },
       [h, ...t]: if h.name == s {
@@ -773,14 +773,14 @@ do {
     }
   }
 
-  te2ast :: [self, e, params, tp] ~> match e.t {
+  te2ast := [self, e, params, tp] ~> match e.t {
     "atom": do {
-      s :: e.name
+      s := e.name
       if is_int_str(s) {
         valv(parse_int(s))
       } else {
         if is_f64_str(s) { valv(s) } else {
-          j :: if tp == null { 0 - 1 } else { param_pos(params, s) }
+          j := if tp == null { 0 - 1 } else { param_pos(params, s) }
           if j >= 0 { fai(tp, j) } else { vnode(s) }
         }
       }
@@ -793,7 +793,7 @@ do {
     }, [self(self, e.l, params, tp), self(self, e.r, params, tp)]),
     _: vnode("")
   }
-  result_state :: res ~> either(false, obj([
+  result_state := res ~> either(false, obj([
     ["W", vnode("__wt")],
     ["R", cell(res, vnode("__r"))]
   ]))
@@ -806,15 +806,15 @@ do {
   -- payloads decode back into a `Sym` at eval (`TaggedValue::from`).
   -- ---------------------------------------------------------------
 
-  former_seed :: tn ~> "data." + tn
-  ctor_seed :: [tn, cn] ~> "data." + tn + "." + cn
+  former_seed := tn ~> "data." + tn
+  ctor_seed := [tn, cn] ~> "data." + tn + "." + cn
   -- a `lit` leaf carrying the serialized seeded sym
   -- (`sym.sym` — ADR-0155: dep names are scope-bound records, so the
   -- self-named `sym` function needs the dotted spelling under both the
   -- record and the string-callee dispatch regimes)
-  sym_lit :: seed ~> litv(sym.sym(seed))
+  sym_lit := seed ~> litv(sym.sym(seed))
   -- `{"__former__": fSym, "indices": [idx..]}` family-application object
-  family_app :: [tn, idx] ~> obj([
+  family_app := [tn, idx] ~> obj([
     ["__former__", sym_lit(former_seed(tn))],
     ["indices", arrn(idx)]
   ])
@@ -826,24 +826,24 @@ do {
   -- link (Rust param_extractors; ADR-0154 §2). Params with no
   -- extractor (implicit indices like `Dbl`'s `n` in `MkDbl(x): Dbl(2*n)`)
   -- stay `null` — the index is type-level only.
-  param_extractors :: [tn, params, c] ~> while {
+  param_extractors := [tn, params, c] ~> while {
     xs: c.args, vals: fill_none(len(params))
   } {
     [xs, vals] ~> match xs {
       []: { out: vals },
       [a, ...t]: do {
-        pr :: p_top(a[1])
-        vals2 :: if pr.e == null || pr.e.t != "app" || pr.e.name != tn {
+        pr := p_top(a[1])
+        vals2 := if pr.e == null || pr.e.t != "app" || pr.e.name != tn {
           vals
         } else {
           while { ps: params, j: 0, vs: vals } {
             [ps, j, vs] ~> match ps {
               []: { out: vs },
               [p, ...pt]: do {
-                ij :: if j < len(pr.e.args) { pr.e.args[j] } else { null }
-                hit :: vs[j] == null && ij != null &&
+                ij := if j < len(pr.e.args) { pr.e.args[j] } else { null }
+                hit := vs[j] == null && ij != null &&
                        ij.t == "atom" && ij.name == p.name
-                vs2 :: if hit {
+                vs2 := if hit {
                   set_at(vs, j, fai(fa(fa(vnode(a[0]), "type"), "indices"), j))
                 } else { vs }
                 { state: { ps: pt, j: j + 1, vs: vs2 } }
@@ -857,7 +857,7 @@ do {
   }
 
   -- whether an atom names a family param with no runtime extractor
-  unres_atom :: [params, vals, s] ~> while {
+  unres_atom := [params, vals, s] ~> while {
     ps: params, j: 0, hit: false
   } {
     [ps, j, hit] ~> match ps {
@@ -871,7 +871,7 @@ do {
   -- whether `e` mentions a param with no runtime extractor (Rust
   -- mentions_unresolved): such an index cannot be computed in the
   -- value world and must lower to `lit null`.
-  mentions_unres :: [self, e, params, vals] ~> match e.t {
+  mentions_unres := [self, e, params, vals] ~> match e.t {
     "atom": unres_atom(params, vals, e.name),
     "app": while { xs: e.args, hit: false } {
       [xs, hit] ~> match xs {
@@ -889,20 +889,20 @@ do {
   -- index_expr_to_ast: compile a result-index TypeExpr to a node
   -- producing its runtime value — literals, param extractors (`vals`),
   -- arithmetic. Unresolved-param expressions lower to `lit null`.
-  ie2ast :: [self, e, params, vals] ~>
+  ie2ast := [self, e, params, vals] ~>
     if mentions_unres(mentions_unres, e, params, vals) {
       nullv
     } else {
       match e.t {
         "atom": do {
-          s :: e.name
+          s := e.name
           if is_int_str(s) {
             valv(parse_int(s))
           } else {
             if is_f64_str(s) { valv(s) } else {
-              j :: param_pos(params, s)
+              j := param_pos(params, s)
               if j >= 0 {
-                v :: vals[j]
+                v := vals[j]
                 if v == null { nullv } else { v }
               } else { vnode(s) }
             }
@@ -918,56 +918,56 @@ do {
       }
     }
 
-  fold_task0 :: [mode, params, cons] ~> if mode == "pred" {
-    p_arr :: arrn(mapi((_p, j) ~> fai(vnode("__in"), j), params))
-    v0 :: if len(params) == 0 { vnode("__in") } else { fai(vnode("__in"), len(params)) }
+  fold_task0 := [mode, params, cons] ~> if mode == "pred" {
+    p_arr := arrn(mapi((_p, j) ~> fai(vnode("__in"), j), params))
+    v0 := if len(params) == 0 { vnode("__in") } else { fai(vnode("__in"), len(params)) }
     obj([["k", litv("f")], ["p", p_arr], ["v", v0]])
   } else {
     obj([["k", litv("f")], ["v", fai(vnode("__in"), 1 + len(cons) + len(params))]])
   }
 
-  fold_ctor_branch :: [self, mode, tn, params, cons, i] ~> do {
-    c :: cons[i]
-    recs :: rec_arg_positions(tn, c)
-    stmts0 :: [assign("__v", fa(vnode("__wh"), "v"))]
-    stmts :: if mode == "pred" {
+  fold_ctor_branch := [self, mode, tn, params, cons, i] ~> do {
+    c := cons[i]
+    recs := rec_arg_positions(tn, c)
+    stmts0 := [assign("__v", fa(vnode("__wh"), "v"))]
+    stmts := if mode == "pred" {
       [...stmts0, assign("__tp", fa(vnode("__wh"), "p"))]
     } else { stmts0 }
-    subtasks :: if mode == "rec" {
-      arg_elems :: arrn(mapi((a, _i) ~> fa(vnode("__v"), a[0]), c.args))
-      fr :: obj([["k", litv("a")], ["i", litv(i)], ["a", arg_elems]])
-      w :: while { xs: recs, acc: cell(fr, vnode("__wt")) } {
+    subtasks := if mode == "rec" {
+      arg_elems := arrn(mapi((a, _i) ~> fa(vnode("__v"), a[0]), c.args))
+      fr := obj([["k", litv("a")], ["i", litv(i)], ["a", arg_elems]])
+      w := while { xs: recs, acc: cell(fr, vnode("__wt")) } {
         [xs, acc] ~> match xs {
           []: { out: acc },
           [r, ...t]: do {
-            sub_v :: fa(vnode("__v"), c.args[r.pos][0])
-            sub :: obj([["k", litv("f")], ["v", sub_v]])
+            sub_v := fa(vnode("__v"), c.args[r.pos][0])
+            sub := obj([["k", litv("f")], ["v", sub_v]])
             { state: { xs: t, acc: cell(sub, acc) } }
           }
         }
       }
       either(false, obj([["W", w], ["R", vnode("__r")]]))
     } else {
-      fr :: obj([["k", litv("n")], ["i", litv(i)]])
-      w :: while { xs: recs, acc: cell(fr, vnode("__wt")) } {
+      fr := obj([["k", litv("n")], ["i", litv(i)]])
+      w := while { xs: recs, acc: cell(fr, vnode("__wt")) } {
         [xs, acc] ~> match xs {
           []: { out: acc },
           [r, ...t]: do {
-            sub_v :: fa(vnode("__v"), c.args[r.pos][0])
-            p_elems :: match r.e {
+            sub_v := fa(vnode("__v"), c.args[r.pos][0])
+            p_elems := match r.e {
               { t: "app", args: ix }: mapi((e, _i) ~> te2ast(te2ast, e, params, vnode("__tp")), ix),
               _: []
             }
-            sub :: obj([["k", litv("f")], ["p", arrn(p_elems)], ["v", sub_v]])
+            sub := obj([["k", litv("f")], ["p", arrn(p_elems)], ["v", sub_v]])
             { state: { xs: t, acc: cell(sub, acc) } }
           }
         }
       }
       either(false, obj([["W", w], ["R", vnode("__r")]]))
     }
-    body :: if mode == "rec" {
+    body := if mode == "rec" {
       if len(recs) == 0 {
-        res :: if len(c.args) == 0 {
+        res := if len(c.args) == 0 {
           fai(vnode("__in"), 1 + i)
         } else {
           calln(fai(vnode("__in"), 1 + i),
@@ -976,14 +976,14 @@ do {
         result_state(res)
       } else { subtasks }
     } else {
-      checks :: while { ps: params, j: 0, acc: [] } {
+      checks := while { ps: params, j: 0, acc: [] } {
         [ps, j, acc] ~> match ps {
           []: { out: { acc: acc, j: j } },
           [p, ...t]: do {
-            ix :: if j < len(c.result_indices) { c.result_indices[j] } else { null }
-            add1 :: if ix == null { acc } else {
-              pr :: p_top(ix)
-              taut :: if pr.e == null { false } else {
+            ix := if j < len(c.result_indices) { c.result_indices[j] } else { null }
+            add1 := if ix == null { acc } else {
+              pr := p_top(ix)
+              taut := if pr.e == null { false } else {
                 match pr.e { { t: "atom", name: an }: an == p.name, _: false }
               }
               if !taut && pr.e != null {
@@ -994,7 +994,7 @@ do {
           }
         }
       }
-      nat_checks :: while { ps: params, j: 0, acc: checks.acc } {
+      nat_checks := while { ps: params, j: 0, acc: checks.acc } {
         [ps, j, acc] ~> match ps {
           []: { out: acc },
           [p, ...t]: if p.typ == "Nat" {
@@ -1002,53 +1002,53 @@ do {
           } else { { state: { ps: t, j: j + 1, acc: acc } } }
         }
       }
-      local_ok :: andof(nat_checks)
-      on_ok :: if len(recs) == 0 { result_state(litv(true)) } else { subtasks }
+      local_ok := andof(nat_checks)
+      on_ok := if len(recs) == 0 { result_state(litv(true)) } else { subtasks }
       ifn(local_ok, on_ok, result_state(litv(false)))
     }
     blk([...stmts, body])
   }
 
-  fold_chain :: [self, mode, tn, params, cons] ~> do {
-    default :: if mode == "rec" { result_state(nullv) } else { result_state(litv(false)) }
+  fold_chain := [self, mode, tn, params, cons] ~> do {
+    default := if mode == "rec" { result_state(nullv) } else { result_state(litv(false)) }
     while { i: len(cons), els: default } {
       [i, els] ~> if i == 0 {
         { out: els }
       } else {
-        j :: i - 1
+        j := i - 1
         -- ADR-0152 §2: dispatch is constructor *identity* — the seeded
         -- `__ctor__` sym — never a `{"tag"}` string. (The legacy `v.tag`
         -- bridge disjunct was deleted with the `__tag__`/`{tag}` bridge;
         -- mirrors the Rust `build_fold_chain`.)
-        cond :: eqn(fa(fa(vnode("__wh"), "v"), "__ctor__"),
+        cond := eqn(fa(fa(vnode("__wh"), "v"), "__ctor__"),
                     sym_lit(ctor_seed(tn, cons[j].name)))
-        th :: fold_ctor_branch(self, mode, tn, params, cons, j)
+        th := fold_ctor_branch(self, mode, tn, params, cons, j)
         { state: { i: j, els: ifn(cond, th, els) } }
       }
     }
   }
 
-  frame_chain :: [self, mode, tn, cons] ~> while {
+  frame_chain := [self, mode, tn, cons] ~> while {
     i: len(cons), els: either(true, nullv)
   } {
     [i, els] ~> if i == 0 {
       { out: els }
     } else {
-      j :: i - 1
-      recs :: rec_arg_positions(tn, cons[j])
-      k :: len(recs)
+      j := i - 1
+      recs := rec_arg_positions(tn, cons[j])
+      k := len(recs)
       if k == 0 {
         { state: { i: j, els: els } }
       } else {
-        cond :: eqn(fa(vnode("__wh"), "i"), litv(j))
-        res :: if mode == "rec" {
+        cond := eqn(fa(vnode("__wh"), "i"), litv(j))
+        res := if mode == "rec" {
           calln(fai(vnode("__in"), 1 + j), append(
             mapi((_a, jj) ~> fai(vnode("__a"), jj), cons[j].args),
             mapi((_x, jj) ~> fa(tchain(vnode("__r"), k - jj - 1), "h"), fill_none(k))))
         } else {
           andof(mapi((_x, jj) ~> fa(tchain(vnode("__r"), k - jj - 1), "h"), fill_none(k)))
         }
-        th :: blk([
+        th := blk([
           assign("__a", fa(vnode("__wh"), "a")),
           assign("__res", res),
           either(false, obj([["W", vnode("__wt")], ["R", cell(vnode("__res"), tchain(vnode("__r"), k))]]))
@@ -1058,8 +1058,8 @@ do {
     }
   }
 
-  fold_dispatch :: [self, mode, tn, params, cons] ~> do {
-    frame_key :: if mode == "rec" { "a" } else { "n" }
+  fold_dispatch := [self, mode, tn, params, cons] ~> do {
+    frame_key := if mode == "rec" { "a" } else { "n" }
     blk([
       assign("__w", fa(vnode("__st"), "W")),
       assign("__wh", fa(vnode("__w"), "h")),
@@ -1071,14 +1071,14 @@ do {
     ])
   }
 
-  fold_step_fn :: [self, mode, tn, params, cons] ~> do {
-    task0 :: fold_task0(mode, params, cons)
-    init_state :: obj([["W", cell(task0, nullv)], ["R", nullv]])
-    init_branch :: either(false, init_state)
-    done_branch :: either(true, fa(fa(vnode("__st"), "R"), "h"))
-    dispatch :: fold_dispatch(self, mode, tn, params, cons)
-    inner :: ifn(eqn(fa(vnode("__st"), "W"), nullv), done_branch, dispatch)
-    body :: ifn(eqn(vnode("__st"), nullv), init_branch, inner)
+  fold_step_fn := [self, mode, tn, params, cons] ~> do {
+    task0 := fold_task0(mode, params, cons)
+    init_state := obj([["W", cell(task0, nullv)], ["R", nullv]])
+    init_branch := either(false, init_state)
+    done_branch := either(true, fa(fa(vnode("__st"), "R"), "h"))
+    dispatch := fold_dispatch(self, mode, tn, params, cons)
+    inner := ifn(eqn(fa(vnode("__st"), "W"), nullv), done_branch, dispatch)
+    body := ifn(eqn(vnode("__st"), nullv), init_branch, inner)
     fn_node(["__in", "__st"], body)
   }
 
@@ -1094,27 +1094,27 @@ do {
   --   machine (unchanged: `__in` = [motive, c0..c_{N-1}, params.., v]).
   -- ---------------------------------------------------------------
 
-  knode_err :: reason ~> ({
+  knode_err := reason ~> ({
     kind: "desugar-error",
     payload: { kind: "data-error", reason: reason }
   })
 
-  data_rewrite :: n ~> do {
-    parsed :: parse_data_payload(parse_data_payload, n)
+  data_rewrite := n ~> do {
+    parsed := parse_data_payload(parse_data_payload, n)
     if parsed == null { null } else {
-      tn :: parsed.name
-      params :: parsed.params
-      cons :: parsed.cons
-      pos_err :: check_positivity(tn, cons)
+      tn := parsed.name
+      params := parsed.params
+      cons := parsed.cons
+      pos_err := check_positivity(tn, cons)
       if pos_err != "" {
         knode_err(pos_err)
       } else {
-        pnames :: mapi((p, _i) ~> p.name, params)
+        pnames := mapi((p, _i) ~> p.name, params)
         -- 1. The former: `F(i⃗)` produces the canonical family-app
         --    object (parameter-free `F` is the object itself).
-        index_vars :: mapi((p, _i) ~> vnode(p.name), params)
-        former_obj :: family_app(tn, index_vars)
-        f_value :: if len(params) == 0 {
+        index_vars := mapi((p, _i) ~> vnode(p.name), params)
+        former_obj := family_app(tn, index_vars)
+        f_value := if len(params) == 0 {
           former_obj
         } else {
           fn_node(pnames, former_obj)
@@ -1124,15 +1124,15 @@ do {
         --    params are recovered from recursive fields' own `type`
         --    links (`param_extractors`), implicit indices lower to
         --    `lit null` (type-level only).
-        cons_assigns :: mapi((c, _i) ~> do {
-          pvals :: param_extractors(tn, params, c)
-          idx_nodes :: mapi((p, j) ~> do {
-            ri :: if j < len(c.result_indices) { c.result_indices[j] } else { null }
+        cons_assigns := mapi((c, _i) ~> do {
+          pvals := param_extractors(tn, params, c)
+          idx_nodes := mapi((p, j) ~> do {
+            ri := if j < len(c.result_indices) { c.result_indices[j] } else { null }
             if ri == null {
-              pv :: pvals[j]
+              pv := pvals[j]
               if pv == null { nullv } else { pv }
             } else {
-              pr :: p_top(ri)
+              pr := p_top(ri)
               if pr.e == null {
                 nullv
               } else {
@@ -1140,30 +1140,30 @@ do {
               }
             }
           }, params)
-          fields :: append(append(
+          fields := append(append(
             [["__ctor__", sym_lit(ctor_seed(tn, c.name))]],
             mapi((a, _j) ~> [a[0], vnode(a[0])], c.args)),
             [["type", family_app(tn, idx_nodes)]])
-          o :: obj(fields)
-          anames :: mapi((a, _j) ~> a[0], c.args)
-          v :: if len(c.args) == 0 { o } else { fn_node(anames, o) }
+          o := obj(fields)
+          anames := mapi((a, _j) ~> a[0], c.args)
+          v := if len(c.args) == 0 { o } else { fn_node(anames, o) }
           assign(c.name, v)
         }, cons)
         -- 3. `F.rec` — the bound-arrow record wrapping the recursor
         --    fold machine (`{__term__, __bound__}`; ADR-0120 Phase 1).
-        rec_step :: fold_step_fn(fold_step_fn, "rec", tn, params, cons)
-        darg :: 1 + len(cons) + len(params)
-        dfield :: find_first_recursive_field(cons, tn)
-        dispatch_fn :: if dfield == "" {
+        rec_step := fold_step_fn(fold_step_fn, "rec", tn, params, cons)
+        darg := 1 + len(cons) + len(params)
+        dfield := find_first_recursive_field(cons, tn)
+        dispatch_fn := if dfield == "" {
           fn_node(["__in"], node("loop", [vnode("__in"), rec_step]))
         } else {
           fn_term(["__in"], node("loop", [vnode("__in"), rec_step]), darg, dfield)
         }
-        bound_arr :: arrn([vnode("motive"), ...mapi((_c, i) ~> vnode("c" + itoa(i)), cons)])
-        rec_obj :: obj([["__term__", dispatch_fn], ["__bound__", bound_arr]])
-        rec_fn :: fn_node(["motive", ...mapi((_c, i) ~> "c" + itoa(i), cons)], rec_obj)
-        inner_name :: "__rec_inner_" + tn
-        rec_region :: node("rec", [assign(inner_name, rec_fn), vnode(inner_name)])
+        bound_arr := arrn([vnode("motive"), ...mapi((_c, i) ~> vnode("c" + itoa(i)), cons)])
+        rec_obj := obj([["__term__", dispatch_fn], ["__bound__", bound_arr]])
+        rec_fn := fn_node(["motive", ...mapi((_c, i) ~> "c" + itoa(i), cons)], rec_obj)
+        inner_name := "__rec_inner_" + tn
+        rec_region := node("rec", [assign(inner_name, rec_fn), vnode(inner_name)])
         blk_splice([
           assign(tn, f_value),
           ...cons_assigns,
@@ -1178,9 +1178,9 @@ do {
 
   -- nested-record view of an env arena node (payload.children are
   -- input-arena indices into env.nodes)
-  unfold :: [self, env, idx] ~> do {
-    n :: env.nodes[idx]
-    cs :: if is_obj(n.payload) && is_arr(n.payload.children) {
+  unfold := [self, env, idx] ~> do {
+    n := env.nodes[idx]
+    cs := if is_obj(n.payload) && is_arr(n.payload.children) {
       mapi((ci, _j) ~> self(self, env, ci), n.payload.children)
     } else { [] }
     { kind: n.kind, span: n.span, payload: n.payload,
@@ -1188,15 +1188,15 @@ do {
   }
 
   -- constructor-pattern check: var (not "_") or call(var, var*)
-  arm_pattern :: p ~> match p.kind {
+  arm_pattern := p ~> match p.kind {
     "var": if p.payload == "_" { null } else {
       { cons: p.payload, args: [] }
     },
     "call": do {
-      cs :: kids(p)
-      c0 :: if len(cs) == 0 { null } else { cs[0] }
+      cs := kids(p)
+      c0 := if len(cs) == 0 { null } else { cs[0] }
       if c0 == null || c0.kind != "var" { null } else {
-        names :: while { xs: drop1(cs), acc: [], ok: true } {
+        names := while { xs: drop1(cs), acc: [], ok: true } {
           [xs, acc, ok] ~> match xs {
             []: { out: { names: rev(acc), ok: ok } },
             [h, ...t]: if h.kind == "var" {
@@ -1212,18 +1212,18 @@ do {
 
   -- scan env.nodes for `data` decls: cons-name -> {name,params,cons}
   -- (last declaration wins, matching the Rust HashMap insert order)
-  scan_data :: env ~> while {
+  scan_data := env ~> while {
     xs: env.nodes, acc: []
   } {
     [xs, acc] ~> match xs {
       []: { out: acc },
       [h, ...t]: if h.kind == "data" {
-        parsed :: parse_data_payload(parse_data_payload,
+        parsed := parse_data_payload(parse_data_payload,
                                      unfold(unfold, env, h.index))
         if parsed == null {
           { state: { xs: t, acc: acc } }
         } else {
-          acc2 :: while { cs: parsed.cons, m: acc } {
+          acc2 := while { cs: parsed.cons, m: acc } {
             [cs, m] ~> match cs {
               []: { out: m },
               [c, ...ct]: { state: { cs: ct, m: [{cons: c.name, decl: parsed}, ...m] } }
@@ -1235,7 +1235,7 @@ do {
     }
   }
 
-  member_cons :: [cons, nm] ~> while { xs: cons, ok: false } {
+  member_cons := [cons, nm] ~> while { xs: cons, ok: false } {
     [xs, ok] ~> match xs {
       []: { out: ok },
       [h, ...t]: if ok || h.name == nm {
@@ -1243,7 +1243,7 @@ do {
       } else { { state: { xs: t, ok: ok } } }
     }
   }
-  member_str :: [xs0, nm] ~> while { xs: xs0, ok: false } {
+  member_str := [xs0, nm] ~> while { xs: xs0, ok: false } {
     [xs, ok] ~> match xs {
       []: { out: ok },
       [h, ...t]: if ok || h == nm {
@@ -1251,7 +1251,7 @@ do {
       } else { { state: { xs: t, ok: ok } } }
     }
   }
-  index_of_cons :: [arms, nm, i0] ~> while { xs: arms, i: i0 } {
+  index_of_cons := [arms, nm, i0] ~> while { xs: arms, i: i0 } {
     [xs, i] ~> match xs {
       []: { out: i },
       [h, ...t]: if h.cons == nm {
@@ -1259,7 +1259,7 @@ do {
       } else { { state: { xs: t, i: i + 1 } } }
     }
   }
-  lookup_decl :: [decls, nm] ~> while { xs: decls, found: null } {
+  lookup_decl := [decls, nm] ~> while { xs: decls, found: null } {
     [xs, found] ~> match xs {
       []: { out: found },
       [h, ...t]: if h.cons == nm {
@@ -1268,31 +1268,31 @@ do {
     }
   }
 
-  match_rewrite :: n ~> do {
-    cs :: kids(n)
+  match_rewrite := n ~> do {
+    cs := kids(n)
     if len(cs) < 2 { null } else {
-      scrut_pos :: if n.roles.scrutinee == null { 0 } else { n.roles.scrutinee }
-      block_pos :: if n.roles.block == null {
+      scrut_pos := if n.roles.scrutinee == null { 0 } else { n.roles.scrutinee }
+      block_pos := if n.roles.block == null {
         if len(cs) >= 3 { 2 } else { 1 }
       } else { n.roles.block }
-      motive_pos :: if n.roles.motive == null {
+      motive_pos := if n.roles.motive == null {
         if len(cs) >= 3 { 1 } else { 0 - 1 }
       } else { n.roles.motive }
-      scrut :: cs[scrut_pos]
-      blkrec :: cs[block_pos]
-      armrecs :: if blkrec == null || !is_arr(blkrec.children) { [] } else { blkrec.children }
+      scrut := cs[scrut_pos]
+      blkrec := cs[block_pos]
+      armrecs := if blkrec == null || !is_arr(blkrec.children) { [] } else { blkrec.children }
       if len(armrecs) == 0 { null } else {
-        arms :: while { xs: armrecs, acc: [], ok: true } {
+        arms := while { xs: armrecs, acc: [], ok: true } {
           [xs, acc, ok] ~> match xs {
             []: { out: { arms: acc, ok: ok } },
             [a, ...t]: do {
-              acs :: a.children
+              acs := a.children
               if !is_arr(acs) || len(acs) < 2 {
                 { out: { arms: [], ok: false } }
               } else {
-                ppos :: if a.roles == null || a.roles.pattern == null { 0 } else { a.roles.pattern }
-                bpos :: if a.roles == null || a.roles.body == null { 1 } else { a.roles.body }
-                arm :: arm_pattern(acs[ppos])
+                ppos := if a.roles == null || a.roles.pattern == null { 0 } else { a.roles.pattern }
+                bpos := if a.roles == null || a.roles.body == null { 1 } else { a.roles.body }
+                arm := arm_pattern(acs[ppos])
                 if arm == null {
                   { out: { arms: [], ok: false } }
                 } else {
@@ -1303,30 +1303,30 @@ do {
           }
         }
         if !(arms.ok) || len(arms.arms) == 0 { null } else {
-          decls :: scan_data(n.env)
-          decl0 :: lookup_decl(decls, arms.arms[0].cons)
-          decl :: decl0
+          decls := scan_data(n.env)
+          decl0 := lookup_decl(decls, arms.arms[0].cons)
+          decl := decl0
           if decl == null { null } else {
-            tn :: decl.name
-            params :: decl.params
-            cons :: decl.cons
+            tn := decl.name
+            params := decl.params
+            cons := decl.cons
             -- scrutinee shape: indexed families need `v : T(idx..)`
-            spath :: [scrut_pos]
-            vi :: if len(params) == 0 {
+            spath := [scrut_pos]
+            vi := if len(params) == 0 {
               { vpath: spath, ipaths: [], ok: true }
             } else {
-              cur :: if scrut.roles != null && scrut.roles.body != null &&
+              cur := if scrut.roles != null && scrut.roles.body != null &&
                         len(scrut.children) == 1 {
                 { node: scrut.children[0], path: [scrut_pos, 0] }
               } else { { node: scrut, path: spath } }
-              an :: cur.node
+              an := cur.node
               if an.roles == null || an.roles.subject == null ||
                  an.roles.annot == null {
                 { vpath: [], ipaths: [], ok: false }
               } else {
-                acs :: an.children
-                annot :: acs[an.roles.annot]
-                ok2 :: annot != null && annot.kind == "call" &&
+                acs := an.children
+                annot := acs[an.roles.annot]
+                ok2 := annot != null && annot.kind == "call" &&
                        len(annot.children) == len(params) + 1 &&
                        annot.children[0].kind == "var" &&
                        annot.children[0].payload == tn
@@ -1340,13 +1340,13 @@ do {
               }
             }
             -- arm coverage: same count, all ctor names, no dups
-            cov :: if len(arms.arms) != len(cons) { false } else {
+            cov := if len(arms.arms) != len(cons) { false } else {
               while { xs: arms.arms, seen: [], ok: true } {
                 [xs, seen, ok] ~> match xs {
                   []: { out: ok },
                   [a, ...t]: do {
-                    has :: member_cons(cons, a.cons)
-                    dup :: member_str(seen, a.cons)
+                    has := member_cons(cons, a.cons)
+                    dup := member_str(seen, a.cons)
                     if has && !dup {
                       { state: { xs: t, seen: [a.cons, ...seen], ok: ok } }
                     } else { { out: false } }
@@ -1355,21 +1355,21 @@ do {
               }
             }
             if !(vi.ok) || !cov { null } else {
-              motive_arg :: if motive_pos < 0 {
+              motive_arg := if motive_pos < 0 {
                 litv(null)
               } else { { "__keep__": motive_pos } }
-              handler_specs :: mapi((c, _i) ~> do {
-                ai :: index_of_cons(arms.arms, c.name, 0)
-                arm :: arms.arms[ai]
+              handler_specs := mapi((c, _i) ~> do {
+                ai := index_of_cons(arms.arms, c.name, 0)
+                arm := arms.arms[ai]
                 if len(c.args) == 0 {
                   { "__keep__": [block_pos, ai, arm.bpath] }
                 } else {
-                  extra :: while { xs: c.args, acc: [], k: 0 } {
+                  extra := while { xs: c.args, acc: [], k: 0 } {
                     [xs, acc, k] ~> match xs {
                       []: { out: acc },
                       [a, ...t]: do {
-                        pr :: p_top(a[1])
-                        isr :: if pr.e == null { false } else { is_recursive_expr(pr.e, tn) }
+                        pr := p_top(a[1])
+                        isr := if pr.e == null { false } else { is_recursive_expr(pr.e, tn) }
                         if isr {
                           { state: { xs: t, acc: [...acc, "__rec_" + itoa(k)], k: k + 1 } }
                         } else { { state: { xs: t, acc: acc, k: k } } }
@@ -1380,7 +1380,7 @@ do {
                           { "__keep__": [block_pos, ai, arm.bpath] })
                 }
               }, cons)
-              rec_call :: node("call", [
+              rec_call := node("call", [
                 vnode(tn + ".rec"), motive_arg, ...handler_specs
               ])
               node("call", [
