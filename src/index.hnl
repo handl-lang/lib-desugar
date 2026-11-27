@@ -1083,15 +1083,18 @@ do {
   }
 
   -- ---------------------------------------------------------------
-  -- `data` -> block of former + constructors + recursor (ADR-0152):
-  --   `F` binds a seeded-sym nominal former — `F(i⃗)` produces the
-  --   canonical `{"__former__": fSym, "indices": i⃗}` object (no
-  --   predicate arrow; Rust desugar_data §1).
-  --   `Cⱼ` is a nominal arrow producing `{"__ctor__": cSym, x⃗…,
-  --   "type": F(j⃗)}` — identity is the sym (dispatch, never a
-  --   `{"tag"}` string); the `type` link is the declared membership
-  --   (ADR-0154 §2). `F.rec` is the dependent eliminator's fold
-  --   machine (unchanged: `__in` = [motive, c0..c_{N-1}, params.., v]).
+  -- `data` -> block of constructors + recursor + family record
+  -- (ADR-0152 + Design A): `F` binds a record carrying every
+  -- constructor under its name, the eliminator under `rec`, and the
+  -- nominal `__former__` sym — `F(i⃗)` still produces the canonical
+  -- `{"__former__": fSym, "indices": i⃗}` object through the
+  -- `{__term__, __bound__}` bound-arrow convention (parameter-free
+  -- `F` is the plain record). Each `Cⱼ` is a nominal arrow producing
+  -- `{"__ctor__": cSym, x⃗…, "type": F(j⃗)}` — identity is the sym
+  -- (dispatch, never a `{"tag"}` string); the `type` link is the
+  -- declared membership (ADR-0154 §2). `F.rec` is the dependent
+  -- eliminator's fold machine (unchanged: `__in` = [motive,
+  -- c0..c_{N-1}, params.., v]).
   -- ---------------------------------------------------------------
 
   knode_err := reason ~> ({
@@ -1109,16 +1112,6 @@ do {
       if pos_err != "" {
         knode_err(pos_err)
       } else {
-        pnames := mapi((p, _i) ~> p.name, params)
-        -- 1. The former: `F(i⃗)` produces the canonical family-app
-        --    object (parameter-free `F` is the object itself).
-        index_vars := mapi((p, _i) ~> vnode(p.name), params)
-        former_obj := family_app(tn, index_vars)
-        f_value := if len(params) == 0 {
-          former_obj
-        } else {
-          fn_node(pnames, former_obj)
-        }
         -- 2. Ctors — nominal arrows into the family. `Cⱼ(x⃗)` produces
         --    `{"__ctor__": cSym, x⃗…, "type": F(j⃗)}`; result-index
         --    params are recovered from recursive fields' own `type`
@@ -1164,10 +1157,39 @@ do {
         rec_fn := fn_node(["motive", ...mapi((_c, i) ~> "c" + itoa(i), cons)], rec_obj)
         inner_name := "__rec_inner_" + tn
         rec_region := node("rec", [assign(inner_name, rec_fn), vnode(inner_name)])
+        -- 4. The family record (Design A — "ctors are just values too"):
+        --    `F` binds a record carrying every constructor under its
+        --    name, the eliminator under `rec`, and the nominal
+        --    `__former__` sym — so `export F` / `F.C` reach the
+        --    constructors through the family value itself. The ctor
+        --    assigns ran first, so the `var` references resolve when
+        --    `F` evaluates. Reserved keys sit after the ctor fields so
+        --    a ctor sharing a reserved name cannot shadow the
+        --    machinery. A parametric family stays applicable via the
+        --    `{__term__, __bound__}` bound-arrow convention: `F(i⃗)`
+        --    produces the canonical `{"__former__": fSym, "indices":
+        --    i⃗}` object (mirrors Rust desugar_data §4).
+        former_sym := sym_lit(former_seed(tn))
+        ctor_fields := mapi((c, _i) ~> [c.name, vnode(c.name)], cons)
+        base_fields := [...ctor_fields,
+          ["rec", vnode(tn + ".rec")],
+          ["__former__", former_sym]]
+        fam_fields := if len(params) == 0 {
+          base_fields
+        } else {
+          in_idx := mapi((_p, j) ~> fai(vnode("__in"), j), params)
+          term_body := obj([
+            ["__former__", former_sym],
+            ["indices", arrn(in_idx)]
+          ])
+          [...base_fields,
+           ["__term__", fn_node(["__in"], term_body)],
+           ["__bound__", arrn([])]]
+        }
         blk_splice([
-          assign(tn, f_value),
           ...cons_assigns,
-          assign(tn + ".rec", rec_region)
+          assign(tn + ".rec", rec_region),
+          assign(tn, obj(fam_fields))
         ])
       }
     }
